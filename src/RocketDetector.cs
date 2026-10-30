@@ -50,7 +50,7 @@ namespace ULTRADROID.TetoRockets
 
                 bool isEnemy = grenade.enemy;
 
-                TetoRocketsPlugin.Log.LogInfo(
+                TetoRocketsPlugin.PluginLog.LogInfo(
                     "Rocket detected: " +
                     grenade.gameObject.name +
                     " | Enemy: " + isEnemy +
