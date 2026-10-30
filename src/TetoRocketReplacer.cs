@@ -160,7 +160,7 @@ namespace ULTRADROID.TetoRockets
                 );
 
                 instance.SetLocalPosition(Vector3.zero);
-                instance.SetLocalRotation(Quaternion.identity);
+                instance.SetLocalRotation(Vector3.zero);
                 instance.SetScale(Vector3.one);
 
                 int meshRendererCount =
