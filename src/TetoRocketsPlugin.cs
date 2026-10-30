@@ -14,11 +14,11 @@ namespace ULTRADROID.TetoRockets
     [BepInDependency("somerandommaid.ultradroid.models")]
     public class TetoRocketsPlugin : BasePlugin
     {
-        internal static ManualLogSource Log;
+        internal static ManualLogSource PluginLog;
 
         public override void Load()
         {
-            Log = Logger;
+            PluginLog = Logger;
 
             Log.LogInfo("Initializing ULTRADROID Teto Rockets...");
 
