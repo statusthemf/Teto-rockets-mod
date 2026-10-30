@@ -1,3 +1,4 @@
+
 using System.Collections.Generic;
 using BepInEx.Unity.IL2CPP;
 using UnityEngine;
@@ -10,6 +11,7 @@ namespace ULTRADROID.TetoRockets
             new HashSet<int>();
 
         private float scanTimer;
+
         private const float ScanInterval = 0.5f;
 
         public RocketDetector(System.IntPtr ptr) : base(ptr)
@@ -26,13 +28,15 @@ namespace ULTRADROID.TetoRockets
             scanTimer = 0f;
 
             ScanForRockets();
+
+            TetoRocketReplacer.CleanupDestroyedRockets();
         }
 
         private void ScanForRockets()
         {
             Grenade[] grenades =
-            UnityEngine.Object.FindObjectsOfType<Grenade>();
-            
+                UnityEngine.Object.FindObjectsOfType<Grenade>();
+
             foreach (Grenade grenade in grenades)
             {
                 if (grenade == null)
@@ -48,13 +52,11 @@ namespace ULTRADROID.TetoRockets
 
                 processedRockets.Add(instanceId);
 
-                bool isEnemy = grenade.enemy;
-
                 TetoRocketsPlugin.PluginLog.LogInfo(
                     "Rocket detected: " +
                     grenade.gameObject.name +
-                    " | Enemy: " + isEnemy +
-                    " | Instance ID: " + instanceId
+                    " | Enemy: " + grenade.enemy +
+                    " | ID: " + instanceId
                 );
 
                 TetoRocketReplacer.ProcessRocket(grenade);
