@@ -1,41 +1,34 @@
 using System;
-using System.Collections.Generic;
-using BepInEx.Unity.IL2CPP;
+
 using UnityEngine;
 
 namespace ULTRADROID.TetoRockets
 {
     public class RocketDetector : MonoBehaviour
     {
-        private float scanTimer;
+        public RocketDetector(IntPtr ptr) : base(ptr) { }
+
+        private float readinessTimer;
+        private float rocketScanTimer;
         private float diagnosticTimer;
-        private float soundCheckTimer;
 
-        private const float ScanInterval = 0.5f;
+        private const float ReadinessInterval = 0.5f;
+        private const float RocketScanInterval = 0.25f;
         private const float DiagnosticInterval = 5f;
-        private const float SoundCheckInterval = 3f;
 
-        private readonly HashSet<int> loggedGrenades =
-            new HashSet<int>();
-
-        public RocketDetector(IntPtr ptr) : base(ptr)
-        {
-        }
+        private bool wasGameplayReady;
 
         private void Update()
         {
             try
             {
-                float delta = Time.deltaTime;
+                readinessTimer += Time.deltaTime;
+                diagnosticTimer += Time.deltaTime;
 
-                scanTimer += delta;
-                diagnosticTimer += delta;
-                soundCheckTimer += delta;
-
-                if (scanTimer >= ScanInterval)
+                if (readinessTimer >= ReadinessInterval)
                 {
-                    scanTimer = 0f;
-                    ScanForRockets();
+                    readinessTimer = 0f;
+                    CheckGameplayReadiness();
                 }
 
                 if (diagnosticTimer >= DiagnosticInterval)
@@ -43,25 +36,76 @@ namespace ULTRADROID.TetoRockets
                     diagnosticTimer = 0f;
 
                     TetoRocketsPlugin.PluginLog.LogInfo(
-                        "Detector alive. Scene: " +
-                        UnityEngine.SceneManagement.SceneManager
-                            .GetActiveScene().name
+                        "[Detector] Alive. Gameplay active: " +
+                        TetoRocketsPlugin.GameplayActive
                     );
                 }
 
-                if (soundCheckTimer >= SoundCheckInterval)
+                // Do not scan for Grenade objects outside gameplay.
+                if (!TetoRocketsPlugin.GameplayActive)
+                    return;
+
+                rocketScanTimer += Time.deltaTime;
+
+                if (rocketScanTimer >= RocketScanInterval)
                 {
-                    soundCheckTimer = 0f;
-                    TetoRocketsPlugin.RecoverSoundRuntime();
+                    rocketScanTimer = 0f;
+                    ScanForRockets();
                 }
 
                 TetoRocketReplacer.CleanupDestroyedRockets();
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
                 TetoRocketsPlugin.PluginLog.LogError(
-                    "RocketDetector.Update exception: " + exception
+                    "[Detector] Update exception: " + ex
                 );
+            }
+        }
+
+        private void CheckGameplayReadiness()
+        {
+            bool ready = IsGameplayReady();
+
+            if (ready && !wasGameplayReady)
+            {
+                wasGameplayReady = true;
+                TetoRocketsPlugin.OnGameplayStarted();
+            }
+            else if (!ready && wasGameplayReady)
+            {
+                wasGameplayReady = false;
+                TetoRocketsPlugin.OnGameplayStopped();
+            }
+        }
+
+        private bool IsGameplayReady()
+        {
+            try
+            {
+                // GunControl is only used as a readiness signal here.
+                // We do not scan Grenade objects until this succeeds.
+                GunControl gunControl =
+                    UnityEngine.Object.FindObjectOfType<GunControl>();
+
+                if (gunControl == null)
+                    return false;
+
+                if (gunControl.slots == null)
+                    return false;
+
+                if (gunControl.slots.Count < 6)
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                TetoRocketsPlugin.PluginLog.LogWarning(
+                    "[Gameplay] Readiness check failed: " + ex.Message
+                );
+
+                return false;
             }
         }
 
@@ -72,31 +116,10 @@ namespace ULTRADROID.TetoRockets
                 Grenade[] grenades =
                     UnityEngine.Object.FindObjectsOfType<Grenade>();
 
-                if (grenades == null)
-                {
-                    TetoRocketsPlugin.PluginLog.LogWarning(
-                        "FindObjectsOfType<Grenade> returned null."
-                    );
-                    return;
-                }
-
                 foreach (Grenade grenade in grenades)
                 {
                     if (grenade == null)
                         continue;
-
-                    int instanceId =
-                        grenade.gameObject.GetInstanceID();
-
-                    if (loggedGrenades.Add(instanceId))
-                    {
-                        TetoRocketsPlugin.PluginLog.LogInfo(
-                            "Grenade found: " +
-                            grenade.gameObject.name +
-                            " | Rocket: " + grenade.rocket +
-                            " | Enemy: " + grenade.enemy
-                        );
-                    }
 
                     if (!grenade.rocket)
                         continue;
@@ -104,10 +127,28 @@ namespace ULTRADROID.TetoRockets
                     TetoRocketReplacer.ProcessRocket(grenade);
                 }
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
                 TetoRocketsPlugin.PluginLog.LogError(
-                    "Rocket scan exception: " + exception
+                    "[Detector] Rocket scan exception: " + ex
+                );
+            }
+        }
+
+        private void OnDestroy()
+        {
+            try
+            {
+                if (wasGameplayReady)
+                {
+                    wasGameplayReady = false;
+                    TetoRocketsPlugin.OnGameplayStopped();
+                }
+            }
+            catch (Exception ex)
+            {
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "[Detector] OnDestroy exception: " + ex
                 );
             }
         }
