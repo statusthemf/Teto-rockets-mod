@@ -30,8 +30,9 @@ namespace ULTRADROID.TetoRockets
 
         private void ScanForRockets()
         {
-            Grenade[] grenades = Object.FindObjectsOfType<Grenade>();
-
+            Grenade[] grenades =
+            UnityEngine.Object.FindObjectsOfType<Grenade>();
+            
             foreach (Grenade grenade in grenades)
             {
                 if (grenade == null)
