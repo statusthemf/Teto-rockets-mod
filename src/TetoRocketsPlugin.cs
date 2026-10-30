@@ -1,3 +1,4 @@
+
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
@@ -18,9 +19,9 @@ namespace ULTRADROID.TetoRockets
 
         public override void Load()
         {
-            PluginLog = Logger;
+            PluginLog = base.Log;
 
-            Log.LogInfo("Initializing ULTRADROID Teto Rockets...");
+            PluginLog.LogInfo("Initializing ULTRADROID Teto Rockets...");
 
             ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
 
@@ -28,11 +29,11 @@ namespace ULTRADROID.TetoRockets
                 "ULTRADROID_Teto_Rockets_Runtime"
             );
 
-            Object.DontDestroyOnLoad(runtime);
+            UnityEngine.Object.DontDestroyOnLoad(runtime);
 
             runtime.AddComponent<RocketDetector>();
 
-            Log.LogInfo("ULTRADROID Teto Rockets initialized.");
+            PluginLog.LogInfo("ULTRADROID Teto Rockets initialized.");
         }
     }
 }
