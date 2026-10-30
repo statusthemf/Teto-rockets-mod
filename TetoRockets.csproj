@@ -50,6 +50,26 @@
       <HintPath>lib/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    
+    <Reference Include="ULTRADROID.Sound">
+      <HintPath>lib/ULTRADROID.Sound.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>lib/UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>lib/UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>lib/UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
