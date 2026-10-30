@@ -1,4 +1,5 @@
-
+using System;
+using System.Collections.Generic;
 using BepInEx.Unity.IL2CPP;
 using UnityEngine;
 
@@ -8,74 +9,106 @@ namespace ULTRADROID.TetoRockets
     {
         private float scanTimer;
         private float diagnosticTimer;
+        private float soundCheckTimer;
 
         private const float ScanInterval = 0.5f;
         private const float DiagnosticInterval = 5f;
+        private const float SoundCheckInterval = 3f;
 
-        public RocketDetector(System.IntPtr ptr) : base(ptr)
+        private readonly HashSet<int> loggedGrenades =
+            new HashSet<int>();
+
+        public RocketDetector(IntPtr ptr) : base(ptr)
         {
         }
 
         private void Update()
         {
-            scanTimer += Time.deltaTime;
-            diagnosticTimer += Time.deltaTime;
-
-            if (scanTimer >= ScanInterval)
+            try
             {
-                scanTimer = 0f;
-                ScanForRockets();
+                float delta = Time.deltaTime;
+
+                scanTimer += delta;
+                diagnosticTimer += delta;
+                soundCheckTimer += delta;
+
+                if (scanTimer >= ScanInterval)
+                {
+                    scanTimer = 0f;
+                    ScanForRockets();
+                }
+
+                if (diagnosticTimer >= DiagnosticInterval)
+                {
+                    diagnosticTimer = 0f;
+
+                    TetoRocketsPlugin.PluginLog.LogInfo(
+                        "Detector alive. Scene: " +
+                        UnityEngine.SceneManagement.SceneManager
+                            .GetActiveScene().name
+                    );
+                }
+
+                if (soundCheckTimer >= SoundCheckInterval)
+                {
+                    soundCheckTimer = 0f;
+                    TetoRocketsPlugin.RecoverSoundRuntime();
+                }
+
+                TetoRocketReplacer.CleanupDestroyedRockets();
             }
-
-            if (diagnosticTimer >= DiagnosticInterval)
+            catch (Exception exception)
             {
-                diagnosticTimer = 0f;
-
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "Rocket detector is alive. Scene: " +
-                    UnityEngine.SceneManagement.SceneManager
-                        .GetActiveScene().name
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "RocketDetector.Update exception: " + exception
                 );
             }
         }
 
         private void ScanForRockets()
         {
-            Grenade[] grenades =
-                UnityEngine.Object.FindObjectsOfType<Grenade>();
-
-            if (grenades == null)
+            try
             {
-                TetoRocketsPlugin.PluginLog.LogWarning(
-                    "FindObjectsOfType returned null."
-                );
-                return;
+                Grenade[] grenades =
+                    UnityEngine.Object.FindObjectsOfType<Grenade>();
+
+                if (grenades == null)
+                {
+                    TetoRocketsPlugin.PluginLog.LogWarning(
+                        "FindObjectsOfType<Grenade> returned null."
+                    );
+                    return;
+                }
+
+                foreach (Grenade grenade in grenades)
+                {
+                    if (grenade == null)
+                        continue;
+
+                    int instanceId =
+                        grenade.gameObject.GetInstanceID();
+
+                    if (loggedGrenades.Add(instanceId))
+                    {
+                        TetoRocketsPlugin.PluginLog.LogInfo(
+                            "Grenade found: " +
+                            grenade.gameObject.name +
+                            " | Rocket: " + grenade.rocket +
+                            " | Enemy: " + grenade.enemy
+                        );
+                    }
+
+                    if (!grenade.rocket)
+                        continue;
+
+                    TetoRocketReplacer.ProcessRocket(grenade);
+                }
             }
-
-            if (grenades.Length > 0)
+            catch (Exception exception)
             {
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "Grenade scan found " + grenades.Length +
-                    " component(s)."
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "Rocket scan exception: " + exception
                 );
-            }
-
-            foreach (Grenade grenade in grenades)
-            {
-                if (grenade == null)
-                    continue;
-
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "Grenade candidate: " +
-                    grenade.gameObject.name +
-                    " | Rocket: " + grenade.rocket +
-                    " | Enemy: " + grenade.enemy
-                );
-
-                if (!grenade.rocket)
-                    continue;
-
-                TetoRocketReplacer.ProcessRocket(grenade);
             }
         }
     }
