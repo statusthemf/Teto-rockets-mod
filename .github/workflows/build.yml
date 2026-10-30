@@ -1,1 +1,32 @@
 
+
+name: Build Teto Rockets
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build plugin
+        run: dotnet build TetoRockets.csproj --configuration Release
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: TetoRockets
+          path: build/ULTRADROID.TetoRockets.dll
