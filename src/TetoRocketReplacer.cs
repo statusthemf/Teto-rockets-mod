@@ -16,7 +16,7 @@ namespace ULTRADROID.TetoRockets
 
             if (modelTransform == null)
             {
-                TetoRocketsPlugin.Log.LogWarning(
+                TetoRocketsPlugin.PluginLog.LogWarning(
                     "Rocket has no Model child: " +
                     rocketRoot.name
                 );
@@ -29,7 +29,7 @@ namespace ULTRADROID.TetoRockets
 
             if (originalRenderer == null)
             {
-                TetoRocketsPlugin.Log.LogWarning(
+                TetoRocketsPlugin.PluginLog.LogWarning(
                     "Rocket Model has no MeshRenderer: " +
                     rocketRoot.name
                 );
@@ -37,7 +37,7 @@ namespace ULTRADROID.TetoRockets
                 return;
             }
 
-            TetoRocketsPlugin.Log.LogInfo(
+            TetoRocketsPlugin.PluginLog.LogInfo(
                 "Rocket visual found. Ready for Teto replacement: " +
                 rocketRoot.name
             );
