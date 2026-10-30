@@ -1,4 +1,4 @@
-
+using System;
 using System.IO;
 using System.Reflection;
 using BepInEx;
@@ -14,13 +14,12 @@ namespace ULTRADROID.TetoRockets
     [BepInPlugin(
         "somerandommaid.ultradroid.tetorockets",
         "ULTRADROID Teto Rockets",
-        "0.3.0"
+        "0.4.0"
     )]
     [BepInDependency("somerandommaid.ultradroid.models")]
     public class TetoRocketsPlugin : BasePlugin
     {
         internal static ManualLogSource PluginLog;
-
         internal static ModelOwner ModelOwner;
 
         internal static string ModelPath;
@@ -30,57 +29,87 @@ namespace ULTRADROID.TetoRockets
 
         public override void Load()
         {
-            PluginLog = base.Log;
+            PluginLog = Log;
 
-            PluginLog.LogInfo("Initializing Teto Rockets...");
+            PluginLog.LogInfo("Initializing Teto Rockets 0.4.0...");
 
-            string pluginFolder = Path.GetDirectoryName(
-                Assembly.GetExecutingAssembly().Location
-            );
-
-            ModelPath = Path.Combine(
-                pluginFolder,
-                "assets",
-                "Teto.glb"
-            );
-
-            SoundPath = Path.Combine(
-                pluginFolder,
-                "assets",
-                "Teto.wav"
-            );
-
-            if (!File.Exists(ModelPath))
+            try
             {
-                PluginLog.LogError("Teto.glb missing: " + ModelPath);
-                return;
-            }
+                string pluginFolder = Path.GetDirectoryName(
+                    Assembly.GetExecutingAssembly().Location
+                );
 
-            if (!File.Exists(SoundPath))
+                ModelPath = Path.Combine(
+                    pluginFolder,
+                    "assets",
+                    "Teto.glb"
+                );
+
+                SoundPath = Path.Combine(
+                    pluginFolder,
+                    "assets",
+                    "Teto.wav"
+                );
+
+                PluginLog.LogInfo("Model path: " + ModelPath);
+                PluginLog.LogInfo("Sound path: " + SoundPath);
+
+                if (!File.Exists(ModelPath))
+                {
+                    PluginLog.LogError(
+                        "Teto.glb does not exist: " + ModelPath
+                    );
+                    return;
+                }
+
+                if (!File.Exists(SoundPath))
+                {
+                    PluginLog.LogError(
+                        "Teto.wav does not exist: " + SoundPath
+                    );
+                    return;
+                }
+
+                PluginLog.LogInfo(
+                    "Teto.glb size: " +
+                    new FileInfo(ModelPath).Length + " bytes"
+                );
+
+                PluginLog.LogInfo(
+                    "Teto.wav size: " +
+                    new FileInfo(SoundPath).Length + " bytes"
+                );
+
+                ModelOwner = ModelAPI.CreateOwner(
+                    "somerandommaid.ultradroid.tetorockets"
+                );
+
+                InitializeSound();
+
+                ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
+
+                GameObject runtime = new GameObject(
+                    "ULTRADROID_Teto_Rockets_Runtime"
+                );
+
+                UnityEngine.Object.DontDestroyOnLoad(runtime);
+
+                runtime.AddComponent<RocketDetector>();
+
+                PluginLog.LogInfo(
+                    "Rocket detector runtime created."
+                );
+
+                PluginLog.LogInfo(
+                    "Teto Rockets initialization complete."
+                );
+            }
+            catch (Exception exception)
             {
-                PluginLog.LogError("Teto.wav missing: " + SoundPath);
-                return;
+                PluginLog.LogError(
+                    "Plugin initialization failed: " + exception
+                );
             }
-
-            ModelOwner = ModelAPI.CreateOwner(
-                "somerandommaid.ultradroid.tetorockets"
-            );
-
-            InitializeSound();
-
-            ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
-
-            GameObject runtime = new GameObject(
-                "ULTRADROID_Teto_Rockets_Runtime"
-            );
-
-            UnityEngine.Object.DontDestroyOnLoad(runtime);
-
-            runtime.AddComponent<RocketDetector>();
-
-            PluginLog.LogInfo("Teto Rockets initialized.");
-            PluginLog.LogInfo("Model: " + ModelPath);
-            PluginLog.LogInfo("Sound: " + SoundPath);
         }
 
         private void InitializeSound()
@@ -88,37 +117,73 @@ namespace ULTRADROID.TetoRockets
             try
             {
                 SoundAPI.SetLogger(
-                    message => PluginLog.LogInfo("[Sound API] " + message),
-                    message => PluginLog.LogError("[Sound API] " + message)
+                    message =>
+                        PluginLog.LogInfo("[Sound API] " + message),
+                    message =>
+                        PluginLog.LogError("[Sound API] " + message)
                 );
 
                 SoundAPI.Initialize();
 
-                PluginLog.LogInfo("Sound API initialized.");
+                PluginLog.LogInfo(
+                    "Sound API initialized. Runtime available: " +
+                    SoundAPI.IsRuntimeAvailable
+                );
 
-                SoundAPI.Load(SoundPath, (clip, error) =>
-                {
-                    if (!string.IsNullOrEmpty(error) || clip == null)
+                SoundAPI.Load(
+                    SoundPath,
+                    (clip, error) =>
                     {
-                        PluginLog.LogError(
-                            "Could not preload Teto.wav: " + error
+                        if (!string.IsNullOrEmpty(error) || clip == null)
+                        {
+                            TetoSoundReady = false;
+
+                            PluginLog.LogError(
+                                "Teto.wav loading failed: " + error
+                            );
+
+                            return;
+                        }
+
+                        TetoSoundReady = true;
+
+                        PluginLog.LogInfo(
+                            "Teto.wav loaded. Length: " +
+                            clip.length + " seconds."
                         );
-
-                        return;
                     }
-
-                    TetoSoundReady = true;
-
-                    PluginLog.LogInfo(
-                        "Teto.wav loaded successfully. Length: " +
-                        clip.length + " seconds."
-                    );
-                });
+                );
             }
-            catch (System.Exception e)
+            catch (Exception exception)
             {
                 PluginLog.LogError(
-                    "Sound initialization failed: " + e
+                    "Sound initialization exception: " + exception
+                );
+            }
+        }
+
+        internal static void RecoverSoundRuntime()
+        {
+            try
+            {
+                if (SoundAPI.IsRuntimeAvailable)
+                    return;
+
+                PluginLog.LogWarning(
+                    "Sound runtime unavailable. Attempting recovery."
+                );
+
+                SoundAPI.Initialize();
+
+                PluginLog.LogInfo(
+                    "Sound runtime recovery attempted. Available: " +
+                    SoundAPI.IsRuntimeAvailable
+                );
+            }
+            catch (Exception exception)
+            {
+                PluginLog.LogError(
+                    "Sound runtime recovery failed: " + exception
                 );
             }
         }
@@ -128,14 +193,26 @@ namespace ULTRADROID.TetoRockets
             if (!TetoSoundReady)
             {
                 PluginLog.LogWarning(
-                    "Teto sound is not ready yet."
+                    "Cannot play Teto.wav: audio is not loaded."
                 );
-
                 return;
             }
 
             try
             {
+                if (!SoundAPI.IsRuntimeAvailable)
+                {
+                    RecoverSoundRuntime();
+                }
+
+                if (!SoundAPI.IsRuntimeAvailable)
+                {
+                    PluginLog.LogWarning(
+                        "Cannot play Teto.wav: runtime is unavailable."
+                    );
+                    return;
+                }
+
                 SoundHandle handle = SoundAPI.Play(
                     SoundPath,
                     new SoundOptions
@@ -155,12 +232,12 @@ namespace ULTRADROID.TetoRockets
                     return;
                 }
 
-                PluginLog.LogInfo("Played Teto.wav!");
+                PluginLog.LogInfo("Played Teto.wav.");
             }
-            catch (System.Exception e)
+            catch (Exception exception)
             {
                 PluginLog.LogError(
-                    "Could not play Teto.wav: " + e
+                    "Teto.wav playback failed: " + exception
                 );
             }
         }
