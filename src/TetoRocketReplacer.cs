@@ -1,4 +1,4 @@
-
+using System;
 using System.Collections.Generic;
 using ULTRADROID.Models;
 using UnityEngine;
@@ -13,6 +13,9 @@ namespace ULTRADROID.TetoRockets
             public Transform ModelTransform;
             public MeshRenderer OriginalRenderer;
             public ModelInstance TetoModel;
+
+            public bool Loading;
+            public bool Replaced;
         }
 
         private static readonly Dictionary<int, RocketReplacement>
@@ -29,130 +32,255 @@ namespace ULTRADROID.TetoRockets
             if (Replacements.ContainsKey(instanceId))
                 return;
 
-            Transform modelTransform =
-                grenade.transform.Find("Model");
-
-            if (modelTransform == null)
+            try
             {
-                TetoRocketsPlugin.PluginLog.LogWarning(
-                    "Rocket Model child not found: " +
-                    grenade.gameObject.name
-                );
-                return;
-            }
+                Transform modelTransform =
+                    grenade.transform.Find("Model");
 
-            MeshRenderer originalRenderer =
-                modelTransform.GetComponent<MeshRenderer>();
-
-            if (originalRenderer == null)
-            {
-                TetoRocketsPlugin.PluginLog.LogWarning(
-                    "Rocket MeshRenderer not found."
-                );
-                return;
-            }
-
-            RocketReplacement replacement =
-                new RocketReplacement
+                if (modelTransform == null)
                 {
-                    Grenade = grenade,
-                    ModelTransform = modelTransform,
-                    OriginalRenderer = originalRenderer
+                    TetoRocketsPlugin.PluginLog.LogWarning(
+                        "Rocket has no Model child: " +
+                        grenade.gameObject.name
+                    );
+                    return;
+                }
+
+                MeshRenderer originalRenderer =
+                    modelTransform.GetComponent<MeshRenderer>();
+
+                if (originalRenderer == null)
+                {
+                    TetoRocketsPlugin.PluginLog.LogWarning(
+                        "Rocket Model has no MeshRenderer: " +
+                        grenade.gameObject.name
+                    );
+                    return;
+                }
+
+                RocketReplacement replacement =
+                    new RocketReplacement
+                    {
+                        Grenade = grenade,
+                        ModelTransform = modelTransform,
+                        OriginalRenderer = originalRenderer,
+                        Loading = true,
+                        Replaced = false
+                    };
+
+                Replacements.Add(instanceId, replacement);
+
+                TetoRocketsPlugin.PluginLog.LogInfo(
+                    "Starting Teto GLB load for rocket " +
+                    instanceId
+                );
+
+                // Do not pass a Unity Transform as Parent here.
+                // The asynchronous API prepares the GLB on a worker task.
+                ModelLoadOptions options = new ModelLoadOptions
+                {
+                    Name = "Teto_Rocket_" + instanceId,
+                    Position = Vector3.zero,
+                    RotationEuler = Vector3.zero,
+                    Scale = Vector3.one,
+                    LoadTextures = true,
+                    CreateColliders = false,
+                    FlipUvV = false
                 };
 
-            Replacements.Add(instanceId, replacement);
+                ModelAPI.LoadGLBAsync(
+                    TetoRocketsPlugin.ModelPath,
 
-            ModelLoadOptions options = new ModelLoadOptions
-            {
-                Name = "Teto_Rocket_Visual",
-                Parent = modelTransform,
-                Position = Vector3.zero,
-                RotationEuler = Vector3.zero,
-                Scale = Vector3.one,
-                LoadTextures = true,
-                CreateColliders = false
-            };
-
-            TetoRocketsPlugin.PluginLog.LogInfo(
-                "Loading Teto model for " +
-                grenade.gameObject.name
-            );
-
-            ModelAPI.LoadGLBAsync(
-                TetoRocketsPlugin.ModelPath,
-
-                instance =>
-                {
-                    if (instance == null || !instance.IsValid)
+                    instance =>
                     {
-                        TetoRocketsPlugin.PluginLog.LogError(
-                            "Teto model returned an invalid instance."
+                        OnModelLoaded(
+                            instanceId,
+                            replacement,
+                            instance
                         );
+                    },
 
-                        Replacements.Remove(instanceId);
-                        return;
-                    }
-
-                    if (!Replacements.ContainsKey(instanceId) ||
-                        grenade == null ||
-                        modelTransform == null)
+                    exception =>
                     {
-                        instance.Destroy();
-                        Replacements.Remove(instanceId);
-                        return;
-                    }
+                        OnModelLoadFailed(
+                            instanceId,
+                            exception
+                        );
+                    },
 
-                    replacement.TetoModel = instance;
+                    options,
 
-                    instance.SetParent(modelTransform, false);
+                    TetoRocketsPlugin.ModelOwner
+                );
+            }
+            catch (Exception exception)
+            {
+                Replacements.Remove(instanceId);
 
-                    if (originalRenderer != null)
-                        originalRenderer.enabled = false;
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "ProcessRocket exception: " + exception
+                );
+            }
+        }
 
-                    TetoRocketsPlugin.PluginLog.LogInfo(
-                        "Teto rocket replacement successful: " +
-                        instanceId
-                    );
+        private static void OnModelLoaded(
+            int instanceId,
+            RocketReplacement replacement,
+            ModelInstance instance)
+        {
+            try
+            {
+                TetoRocketsPlugin.PluginLog.LogInfo(
+                    "Models API completed GLB load for rocket " +
+                    instanceId
+                );
 
-                    // Play the sound once for this rocket.
-                    TetoRocketsPlugin.PlayTetoSound();
-                },
-
-                exception =>
+                if (instance == null)
                 {
                     TetoRocketsPlugin.PluginLog.LogError(
-                        "Teto loading failed: " + exception
+                        "Models API returned a null ModelInstance."
                     );
 
                     Replacements.Remove(instanceId);
-                },
+                    return;
+                }
 
-                options,
+                if (!instance.IsValid || instance.Root == null)
+                {
+                    TetoRocketsPlugin.PluginLog.LogError(
+                        "Models API returned an invalid model root."
+                    );
 
-                TetoRocketsPlugin.ModelOwner
+                    instance.Destroy();
+                    Replacements.Remove(instanceId);
+                    return;
+                }
+
+                if (!Replacements.ContainsKey(instanceId) ||
+                    replacement.Grenade == null ||
+                    replacement.ModelTransform == null)
+                {
+                    TetoRocketsPlugin.PluginLog.LogWarning(
+                        "Rocket disappeared before Teto finished loading."
+                    );
+
+                    instance.Destroy();
+                    Replacements.Remove(instanceId);
+                    return;
+                }
+
+                // Attach the model after asynchronous loading.
+                instance.SetParent(
+                    replacement.ModelTransform,
+                    false
+                );
+
+                // Explicit local transform.
+                instance.SetLocalPosition(Vector3.zero);
+                instance.SetLocalRotation(Vector3.zero);
+                instance.SetScale(Vector3.one);
+
+                // Count renderers so we can verify that the GLB
+                // actually contains visible geometry.
+                MeshRenderer[] meshRenderers =
+                    instance.Root.GetComponentsInChildren<MeshRenderer>(
+                        true
+                    );
+
+                SkinnedMeshRenderer[] skinnedRenderers =
+                    instance.Root.GetComponentsInChildren<SkinnedMeshRenderer>(
+                        true
+                    );
+
+                TetoRocketsPlugin.PluginLog.LogInfo(
+                    "Teto model root: " + instance.Root.name +
+                    " | MeshRenderers: " + meshRenderers.Length +
+                    " | SkinnedMeshRenderers: " +
+                    skinnedRenderers.Length
+                );
+
+                if (meshRenderers.Length == 0 &&
+                    skinnedRenderers.Length == 0)
+                {
+                    TetoRocketsPlugin.PluginLog.LogError(
+                        "Teto GLB loaded, but it contains no visible " +
+                        "MeshRenderer or SkinnedMeshRenderer components."
+                    );
+
+                    instance.Destroy();
+                    Replacements.Remove(instanceId);
+                    return;
+                }
+
+                replacement.TetoModel = instance;
+                replacement.Loading = false;
+                replacement.Replaced = true;
+
+                // Only hide the original rocket mesh after the
+                // replacement has loaded and has renderers.
+                if (replacement.OriginalRenderer != null)
+                {
+                    replacement.OriginalRenderer.enabled = false;
+                }
+
+                TetoRocketsPlugin.PluginLog.LogInfo(
+                    "Teto rocket replacement successful: " +
+                    instanceId
+                );
+
+                TetoRocketsPlugin.PlayTetoSound();
+            }
+            catch (Exception exception)
+            {
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "OnModelLoaded exception: " + exception
+                );
+
+                if (instance != null)
+                    instance.Destroy();
+
+                Replacements.Remove(instanceId);
+            }
+        }
+
+        private static void OnModelLoadFailed(
+            int instanceId,
+            Exception exception)
+        {
+            TetoRocketsPlugin.PluginLog.LogError(
+                "GLB load failed for rocket " + instanceId +
+                ": " + exception
             );
+
+            Replacements.Remove(instanceId);
         }
 
         public static void CleanupDestroyedRockets()
         {
             List<int> removeIds = new List<int>();
 
-            foreach (KeyValuePair<int, RocketReplacement> pair
-                in Replacements)
+            foreach (
+                KeyValuePair<int, RocketReplacement> pair
+                in Replacements
+            )
             {
                 RocketReplacement replacement = pair.Value;
 
-                if (replacement.Grenade == null)
-                {
-                    if (replacement.TetoModel != null)
-                        replacement.TetoModel.Destroy();
+                if (replacement.Grenade != null)
+                    continue;
 
-                    removeIds.Add(pair.Key);
+                if (replacement.TetoModel != null)
+                {
+                    replacement.TetoModel.Destroy();
                 }
+
+                removeIds.Add(pair.Key);
             }
 
             foreach (int id in removeIds)
+            {
                 Replacements.Remove(id);
+            }
         }
     }
 }
