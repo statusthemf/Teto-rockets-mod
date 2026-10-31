@@ -188,8 +188,8 @@ namespace ULTRADROID.TetoRockets
                 {
                     Name = "TetoRocket_" + id,
                     Position = Vector3.zero,
-                    RotationEuler = new Vector3(0f, 180f, 0f),
-                    Scale = Vector3.one,
+                    RotationEuler = new Vector3(180f, 180f, 0f),
+                    Scale = new Vector3(0.5f, 0.5f, 0.5f),
                     LoadTextures = true,
                     CreateColliders = false,
                     FlipUvV = true
