@@ -30,6 +30,8 @@ namespace ULTRADROID.TetoRockets
 
         internal static ModelOwner ModelOwner;
 
+        internal static ModelInstance TetoTemplate;
+
         internal static string ModelPath;
         internal static string SoundPath;
 
@@ -40,6 +42,9 @@ namespace ULTRADROID.TetoRockets
         private static bool detectorTypeRegistered;
         private static bool runtimeCreated;
         private static bool sceneEventRegistered;
+
+        private static bool templateLoading;
+        private static int templateLoadGeneration;
 
         // Keep a strong reference to the converted IL2CPP delegate.
         private static UnityAction<Scene, LoadSceneMode> sceneLoadedHandler;
@@ -201,6 +206,7 @@ namespace ULTRADROID.TetoRockets
             );
 
             InitializeSound();
+            PreloadTetoTemplate();
         }
 
         internal static void OnGameplayStopped()
@@ -210,11 +216,167 @@ namespace ULTRADROID.TetoRockets
 
             GameplayActive = false;
 
+            // Invalidate any outstanding asynchronous template callback.
+            templateLoadGeneration++;
+            templateLoading = false;
+
             PluginLog.LogInfo(
                 "[Gameplay] Gameplay ended. Cleaning up."
             );
 
+            // Destroy each rocket's independent model first.
             TetoRocketReplacer.CleanupAll();
+
+            // Then destroy the shared source template.
+            if (TetoTemplate != null)
+            {
+                TetoTemplate.Destroy();
+                TetoTemplate = null;
+
+                PluginLog.LogInfo(
+                    "[Model] Preloaded Teto template destroyed."
+                );
+            }
+        }
+
+        private static void PreloadTetoTemplate()
+        {
+            if (!GameplayActive)
+                return;
+
+            if (TetoTemplate != null && TetoTemplate.IsValid)
+            {
+                PluginLog.LogInfo(
+                    "[Model] Teto template is already available."
+                );
+
+                TetoRocketReplacer.OnTemplateReady();
+                return;
+            }
+
+            if (templateLoading)
+            {
+                PluginLog.LogInfo(
+                    "[Model] Teto template is already loading."
+                );
+
+                return;
+            }
+
+            if (ModelOwner == null || ModelOwner.IsDisposed)
+            {
+                PluginLog.LogError(
+                    "[Model] Cannot preload Teto: ModelOwner is unavailable."
+                );
+
+                return;
+            }
+
+            templateLoading = true;
+
+            int generation = ++templateLoadGeneration;
+
+            PluginLog.LogInfo(
+                "[Model] Preloading Teto.glb once for this gameplay session..."
+            );
+
+            ModelLoadOptions options = new ModelLoadOptions
+            {
+                Name = "ULTRADROID_Teto_Template",
+                Position = Vector3.zero,
+                RotationEuler = Vector3.zero,
+                Scale = new Vector3(0.5f, 0.5f, 0.5f),
+                LoadTextures = true,
+                CreateColliders = false,
+                FlipUvV = true
+            };
+
+            try
+            {
+                ModelAPI.LoadGLBAsync(
+                    ModelPath,
+
+                    instance =>
+                    {
+                        templateLoading = false;
+
+                        // Gameplay may have ended while the GLB was loading.
+                        if (generation != templateLoadGeneration ||
+                            !GameplayActive)
+                        {
+                            if (instance != null)
+                                instance.Destroy();
+
+                            PluginLog.LogInfo(
+                                "[Model] Ignored stale template load result."
+                            );
+
+                            return;
+                        }
+
+                        if (instance == null ||
+                            !instance.IsValid ||
+                            instance.Root == null)
+                        {
+                            if (instance != null)
+                                instance.Destroy();
+
+                            PluginLog.LogError(
+                                "[Model] Teto template load returned an invalid instance."
+                            );
+
+                            return;
+                        }
+
+                        TetoTemplate = instance;
+
+                        // Keep the template alive, but invisible.
+                        // Clones will enable their own renderers.
+                        Renderer[] renderers =
+                            TetoTemplate.Root.GetComponentsInChildren<Renderer>(true);
+
+                        foreach (Renderer renderer in renderers)
+                        {
+                            if (renderer != null)
+                                renderer.enabled = false;
+                        }
+
+                        PluginLog.LogInfo(
+                            "[Model] Teto template loaded successfully. Renderers hidden: " +
+                            renderers.Length
+                        );
+
+                        // This is the important call:
+                        // pending rockets now receive independent instances.
+                        TetoRocketReplacer.OnTemplateReady();
+                    },
+
+                    exception =>
+                    {
+                        templateLoading = false;
+
+                        if (generation != templateLoadGeneration ||
+                            !GameplayActive)
+                            return;
+
+                        PluginLog.LogError(
+                            "[Model] Failed to preload Teto.glb: " + exception
+                        );
+                    },
+
+                    options,
+
+                    ModelOwner
+                );
+            }
+            catch (Exception ex)
+            {
+                templateLoading = false;
+
+                PluginLog.LogError(
+                    "[Model] Template preload exception: " + ex
+                );
+            }
         }
 
         private static void InitializeSound()
@@ -308,7 +470,7 @@ namespace ULTRADROID.TetoRockets
                         PlayOnLoad = true
                     }
                 );
-                
+
                 if (handle == null)
                 {
                     PluginLog.LogError(
