@@ -29,8 +29,6 @@ namespace ULTRADROID.TetoRockets
             if (!TetoRocketsPlugin.GameplayActive || grenade == null)
                 return;
 
-            TetoRocketsPlugin.PlayTetoSound();
-
             try
             {
                 int id = grenade.gameObject.GetInstanceID();
@@ -38,6 +36,7 @@ namespace ULTRADROID.TetoRockets
                 if (replacements.ContainsKey(id))
                     return;
 
+                TetoRocketsPlugin.PlayTetoSound();
                 Transform modelTransform =
                     grenade.transform.Find("Model");
 
@@ -163,7 +162,7 @@ namespace ULTRADROID.TetoRockets
                 {
                     Name = "TetoRocket_" + id,
                     Position = Vector3.zero,
-                    RotationEuler = new Vector3(0f, 0f, 180f),
+                    RotationEuler = new Vector3(0f, 180f, 0f),
                     Scale = Vector3.one * 0.5f,
                     LoadTextures = true,
                     CreateColliders = false,
