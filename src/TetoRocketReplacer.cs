@@ -208,10 +208,8 @@ namespace ULTRADROID.TetoRockets
                 );
 
                 instance.SetLocalPosition(Vector3.zero);
-                instance.SetLocalRotation(new Vector3(0f, 180f, 180f));
+                instance.SetLocalRotation(new Vector3(180f, 180f, 0f));
                 instance.SetScale(Vector3.one * 0.6f);
-                
-                );
                 
                 Renderer[] renderers =
                     instance.Root.GetComponentsInChildren<Renderer>(true);
