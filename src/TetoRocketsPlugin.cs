@@ -34,7 +34,8 @@ namespace ULTRADROID.TetoRockets
 
         internal static string ModelPath;
         internal static string SoundPath;
-
+        private static Harmony harmony;
+        
         internal static bool GameplayActive;
         internal static bool SoundInitialized;
         internal static bool TetoSoundReady;
@@ -53,6 +54,9 @@ namespace ULTRADROID.TetoRockets
             PluginLog = Log;
 
             PluginLog.LogInfo("Initializing Teto Rockets 0.5.0...");
+            
+            harmony = new Harmony("somerandommaid.ultradroid.tetorockets");
+            harmony.PatchAll(typeof(TetoRocketsPlugin).Assembly);
 
             string pluginDirectory = Path.GetDirectoryName(
                 typeof(TetoRocketsPlugin).Assembly.Location
