@@ -29,7 +29,6 @@ namespace ULTRADROID.TetoRockets
         internal static ManualLogSource PluginLog;
 
         internal static ModelOwner ModelOwner;
-
         internal static ModelInstance TetoTemplate;
 
         internal static string ModelPath;
@@ -46,7 +45,6 @@ namespace ULTRADROID.TetoRockets
         private static bool templateLoading;
         private static int templateLoadGeneration;
 
-        // Keep a strong reference to the converted IL2CPP delegate.
         private static UnityAction<Scene, LoadSceneMode> sceneLoadedHandler;
 
         public override void Load()
@@ -118,7 +116,6 @@ namespace ULTRADROID.TetoRockets
                     );
 
                 SceneManager.sceneLoaded += sceneLoadedHandler;
-
                 sceneEventRegistered = true;
 
                 PluginLog.LogInfo(
@@ -182,8 +179,7 @@ namespace ULTRADROID.TetoRockets
                 );
 
                 PluginLog.LogInfo(
-                    "[Runtime] Runtime scene: " +
-                    runtime.scene.name
+                    "[Runtime] Runtime scene: " + runtime.scene.name
                 );
             }
             catch (Exception ex)
@@ -216,7 +212,6 @@ namespace ULTRADROID.TetoRockets
 
             GameplayActive = false;
 
-            // Invalidate any outstanding asynchronous template callback.
             templateLoadGeneration++;
             templateLoading = false;
 
@@ -224,10 +219,8 @@ namespace ULTRADROID.TetoRockets
                 "[Gameplay] Gameplay ended. Cleaning up."
             );
 
-            // Destroy each rocket's independent model first.
             TetoRocketReplacer.CleanupAll();
 
-            // Then destroy the shared source template.
             if (TetoTemplate != null)
             {
                 TetoTemplate.Destroy();
@@ -300,7 +293,6 @@ namespace ULTRADROID.TetoRockets
                     {
                         templateLoading = false;
 
-                        // Gameplay may have ended while the GLB was loading.
                         if (generation != templateLoadGeneration ||
                             !GameplayActive)
                         {
@@ -330,8 +322,20 @@ namespace ULTRADROID.TetoRockets
 
                         TetoTemplate = instance;
 
-                        // Keep the template alive, but invisible.
-                        // Clones will enable their own renderers.
+                        // IMPORTANT:
+                        // Preserve the template across scene transitions.
+                        // It is loaded while Main Menu may still be active.
+                        UnityEngine.Object.DontDestroyOnLoad(
+                            TetoTemplate.Root
+                        );
+
+                        PluginLog.LogInfo(
+                            "[Model] Template moved to persistent scene: " +
+                            TetoTemplate.Root.scene.name
+                        );
+
+                        // Hide the source template.
+                        // Independent instances enable their own renderers.
                         Renderer[] renderers =
                             TetoTemplate.Root.GetComponentsInChildren<Renderer>(true);
 
@@ -346,8 +350,6 @@ namespace ULTRADROID.TetoRockets
                             renderers.Length
                         );
 
-                        // This is the important call:
-                        // pending rockets now receive independent instances.
                         TetoRocketReplacer.OnTemplateReady();
                     },
 
