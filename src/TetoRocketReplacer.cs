@@ -36,7 +36,6 @@ namespace ULTRADROID.TetoRockets
                 if (replacements.ContainsKey(id))
                     return;
 
-                TetoRocketsPlugin.PlayTetoSound();
                 Transform modelTransform =
                     grenade.transform.Find("Model");
 
