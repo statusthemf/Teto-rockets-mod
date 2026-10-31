@@ -228,6 +228,28 @@ namespace ULTRADROID.TetoRockets
                     return;
                 }
 
+                Renderer[] allRenderers =
+                    instance.Root.GetComponentsInChildren<Renderer>(true);
+
+                TetoRocketsPlugin.PluginLog.LogWarning(
+                    "[Rocket Debug] ALL RENDERERS | " +
+                    "Root: " + instance.Root.name +
+                    " | RootID: " + instance.Root.GetInstanceID() +
+                    " | Count: " + allRenderers.Length
+                );
+
+                foreach (Renderer renderer in allRenderers)
+                {
+                    if (renderer == null)
+                        continue;
+
+                    TetoRocketsPlugin.PluginLog.LogWarning(
+                        "[Rocket Debug] RENDERER TYPE | " +
+                        renderer.GetType().FullName +
+                        " | Object: " + renderer.gameObject.name
+                    );
+                }
+
                 // Check again because the rocket could have disappeared
                 // while the instance was being created.
                 if (!TetoRocketsPlugin.GameplayActive ||
