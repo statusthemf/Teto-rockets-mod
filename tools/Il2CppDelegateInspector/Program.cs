@@ -138,6 +138,78 @@ try
         {
             Console.WriteLine(method);
         }
+
+        Console.WriteLine("-- SceneLoaded accessor signatures --");
+
+        foreach (var name in new[]
+        {
+            "add_sceneLoaded",
+            "remove_sceneLoaded",
+            "get_sceneLoaded",
+            "set_sceneLoaded"
+        })
+        {
+            var method = type.GetMethod(
+                name,
+                BindingFlags.Public |
+                BindingFlags.NonPublic |
+                BindingFlags.Static |
+                BindingFlags.DeclaredOnly);
+
+            if (method == null)
+                continue;
+
+            Console.WriteLine(method);
+
+            foreach (var parameter in method.GetParameters())
+            {
+                Console.WriteLine(
+                    $"  Parameter: {parameter.ParameterType.AssemblyQualifiedName}");
+            }
+
+            Console.WriteLine(
+                $"  Return: {method.ReturnType.AssemblyQualifiedName}");
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("=== UnityAction<T1,T2> ===");
+
+    var unityAction = loadedTypes.FirstOrDefault(t =>
+        t.FullName == "UnityEngine.Events.UnityAction`2");
+
+    if (unityAction == null)
+    {
+        Console.WriteLine("UnityAction<T1,T2> type not found.");
+    }
+    else
+    {
+        Console.WriteLine("Type: " + unityAction.AssemblyQualifiedName);
+
+        Console.WriteLine("-- Constructors --");
+
+        foreach (var constructor in unityAction.GetConstructors(
+            BindingFlags.Public |
+            BindingFlags.NonPublic |
+            BindingFlags.Instance))
+        {
+            Console.WriteLine(constructor);
+        }
+
+        Console.WriteLine("-- Invoke method --");
+
+        var invoke = unityAction.GetMethod("Invoke");
+
+        Console.WriteLine(invoke);
+
+        if (invoke != null)
+        {
+            foreach (var parameter in invoke.GetParameters())
+            {
+                Console.WriteLine(
+                    $"  Parameter: {parameter.ParameterType.AssemblyQualifiedName} {parameter.Name}");
+            }
+        }
     }
 
     Console.WriteLine();
