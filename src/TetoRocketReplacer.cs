@@ -190,7 +190,7 @@ namespace ULTRADROID.TetoRockets
                 {
                     Name = "TetoRocket_" + id,
                     Position = Vector3.zero,
-                    RotationEuler = Quaternion.Euler(0f, 0f, 180f)
+                    RotationEuler = Quaternion.Euler(0f, 0f, 180f),
                     Scale = Vector3.one * 0.5f,
                     LoadTextures = true,
                     CreateColliders = false,
