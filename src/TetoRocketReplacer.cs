@@ -28,9 +28,9 @@ namespace ULTRADROID.TetoRockets
         {
             if (!TetoRocketsPlugin.GameplayActive || grenade == null)
                 return;
-            
+
             TetoRocketsPlugin.PlayTetoSound();
-            
+
             try
             {
                 int id = grenade.gameObject.GetInstanceID();
@@ -76,12 +76,6 @@ namespace ULTRADROID.TetoRockets
 
                 replacements.Add(id, replacement);
 
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket] Registered rocket: " +
-                    grenade.gameObject.name +
-                    " | ID: " + id
-                );
-
                 TrySpawnReplacement(id, replacement);
             }
             catch (Exception ex)
@@ -96,10 +90,6 @@ namespace ULTRADROID.TetoRockets
         {
             if (!TetoRocketsPlugin.GameplayActive)
                 return;
-
-            TetoRocketsPlugin.PluginLog.LogInfo(
-                "[Rocket] Teto template ready. Processing pending rockets."
-            );
 
             List<KeyValuePair<int, RocketReplacement>> pending =
                 new List<KeyValuePair<int, RocketReplacement>>();
@@ -138,11 +128,6 @@ namespace ULTRADROID.TetoRockets
                 if (replacement.Grenade == null ||
                     replacement.ModelTransform == null)
                 {
-                    TetoRocketsPlugin.PluginLog.LogWarning(
-                        "[Rocket Debug] Rocket " + id +
-                        " was destroyed before its Teto instance spawned."
-                    );
-
                     replacements.Remove(id);
                     return;
                 }
@@ -155,22 +140,10 @@ namespace ULTRADROID.TetoRockets
                 bool templateHasRoot =
                     templateExists && template.Root != null;
 
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket Debug] Template status for rocket " + id +
-                    " | Exists: " + templateExists +
-                    " | Valid: " + templateValid +
-                    " | HasRoot: " + templateHasRoot
-                );
-
                 if (!templateExists ||
                     !templateValid ||
                     !templateHasRoot)
                 {
-                    TetoRocketsPlugin.PluginLog.LogWarning(
-                        "[Rocket Debug] Template is not ready. " +
-                        "Rocket " + id + " remains queued."
-                    );
-
                     return;
                 }
 
@@ -197,21 +170,11 @@ namespace ULTRADROID.TetoRockets
                     FlipUvV = true
                 };
 
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket Debug] Calling InstantiateModel for rocket " +
-                    id + "."
-                );
-
                 ModelInstance instance =
                     TetoRocketsPlugin.ModelOwner.InstantiateModel(
                         template,
                         options
                     );
-
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket Debug] InstantiateModel returned. Instance exists: " +
-                    (instance != null)
-                );
 
                 if (instance == null ||
                     !instance.IsValid ||
@@ -228,28 +191,6 @@ namespace ULTRADROID.TetoRockets
                     replacement.Loading = false;
                     replacements.Remove(id);
                     return;
-                }
-
-                Renderer[] allRenderers =
-                    instance.Root.GetComponentsInChildren<Renderer>(true);
-
-                TetoRocketsPlugin.PluginLog.LogWarning(
-                    "[Rocket Debug] ALL RENDERERS | " +
-                    "Root: " + instance.Root.name +
-                    " | RootID: " + instance.Root.GetInstanceID() +
-                    " | Count: " + allRenderers.Length
-                );
-
-                foreach (Renderer renderer in allRenderers)
-                {
-                    if (renderer == null)
-                        continue;
-
-                    TetoRocketsPlugin.PluginLog.LogWarning(
-                        "[Rocket Debug] RENDERER TYPE | " +
-                        renderer.GetType().FullName +
-                        " | Object: " + renderer.gameObject.name
-                    );
                 }
 
                 // Check again because the rocket could have disappeared
@@ -291,11 +232,6 @@ namespace ULTRADROID.TetoRockets
                     rendererCount++;
                 }
 
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket] Teto instance renderer count for rocket " +
-                    id + " | Renderers: " + rendererCount
-                );
-
                 if (rendererCount == 0)
                 {
                     TetoRocketsPlugin.PluginLog.LogError(
@@ -316,12 +252,6 @@ namespace ULTRADROID.TetoRockets
                 // independent Teto instance is ready.
                 if (replacement.OriginalRenderer != null)
                     replacement.OriginalRenderer.enabled = false;
-
-                TetoRocketsPlugin.PluginLog.LogInfo(
-                    "[Rocket] Rocket successfully replaced with Teto. ID: " +
-                    id
-                );
-
             }
             catch (Exception ex)
             {
@@ -376,10 +306,6 @@ namespace ULTRADROID.TetoRockets
             }
 
             replacements.Clear();
-
-            TetoRocketsPlugin.PluginLog.LogInfo(
-                "[Rocket] All replacement models cleaned up."
-            );
         }
 
         private static void DestroyReplacement(
