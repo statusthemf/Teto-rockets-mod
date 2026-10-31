@@ -208,14 +208,11 @@ namespace ULTRADROID.TetoRockets
                 );
 
                 instance.SetLocalPosition(Vector3.zero);
-                instance.SetLocalRotation(
-                    Vector3.zero
+                instance.SetLocalRotation(new Vector3(0f, 180f, 180f));
+                instance.SetScale(Vector3.one * 0.6f);
+                
                 );
-
-                // The source template was imported at scale 0.5.
-                // The clone keeps that imported scale.
-                instance.SetScale(Vector3.one * 0.5f);
-
+                
                 Renderer[] renderers =
                     instance.Root.GetComponentsInChildren<Renderer>(true);
 
