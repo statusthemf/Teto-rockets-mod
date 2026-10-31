@@ -6,6 +6,7 @@ using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 
+using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.Injection;
 
 using ULTRADROID.Models;
@@ -38,6 +39,10 @@ namespace ULTRADROID.TetoRockets
 
         private static bool detectorTypeRegistered;
         private static bool runtimeCreated;
+        private static bool sceneEventRegistered;
+
+        // Keep a strong reference to the converted IL2CPP delegate.
+        private static UnityAction<Scene, LoadSceneMode> sceneLoadedHandler;
 
         public override void Load()
         {
@@ -86,14 +91,41 @@ namespace ULTRADROID.TetoRockets
             ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
             detectorTypeRegistered = true;
 
-            // Wait for Unity to finish loading a scene before
-            // creating our persistent runtime object.
-            SceneManager.sceneLoaded +=
-            new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded);
+            RegisterSceneEvent();
 
             PluginLog.LogInfo(
                 "Initialization complete. Waiting for the first scene to load."
             );
+        }
+
+        private static void RegisterSceneEvent()
+        {
+            if (sceneEventRegistered)
+                return;
+
+            try
+            {
+                sceneLoadedHandler =
+                    DelegateSupport.ConvertDelegate<
+                        UnityAction<Scene, LoadSceneMode>
+                    >(
+                        new Action<Scene, LoadSceneMode>(OnSceneLoaded)
+                    );
+
+                SceneManager.sceneLoaded += sceneLoadedHandler;
+
+                sceneEventRegistered = true;
+
+                PluginLog.LogInfo(
+                    "[Runtime] SceneLoaded callback registered successfully."
+                );
+            }
+            catch (Exception ex)
+            {
+                PluginLog.LogError(
+                    "[Runtime] SceneLoaded registration failed: " + ex
+                );
+            }
         }
 
         private static void OnSceneLoaded(
