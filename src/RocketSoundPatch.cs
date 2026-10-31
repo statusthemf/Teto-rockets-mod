@@ -4,80 +4,78 @@ using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
-[HarmonyPatch(typeof(RocketLauncher), nameof(RocketLauncher.Shoot))]
-internal static class RocketSoundPatch
+namespace ULTRADROID.TetoRockets
 {
-    // Runs immediately BEFORE the original Shoot() method.
-    // Remember every Grenade that already exists.
-    [HarmonyPrefix]
-    private static void Prefix(out HashSet<int> __state)
+    [HarmonyPatch(typeof(RocketLauncher), nameof(RocketLauncher.Shoot))]
+    internal static class RocketSoundPatch
     {
-        __state = new HashSet<int>();
-
-        try
+        [HarmonyPrefix]
+        private static void Prefix(out HashSet<int> __state)
         {
-            Grenade[] existing =
-                UnityEngine.Object.FindObjectsOfType<Grenade>();
+            __state = new HashSet<int>();
 
-            foreach (Grenade grenade in existing)
+            try
             {
-                if (grenade == null)
-                    continue;
+                Grenade[] existing =
+                    UnityEngine.Object.FindObjectsOfType<Grenade>();
 
-                __state.Add(grenade.GetInstanceID());
+                foreach (Grenade grenade in existing)
+                {
+                    if (grenade != null)
+                        __state.Add(grenade.GetInstanceID());
+                }
+            }
+            catch (Exception ex)
+            {
+                TetoRocketsPlugin.PluginLog.LogWarning(
+                    "[Firing Detection] Snapshot failed: " + ex
+                );
             }
         }
-        catch (Exception ex)
+
+        [HarmonyPostfix]
+        private static void Postfix(HashSet<int> __state)
         {
-            Debug.LogWarning(
-                "[ULTRADROID Teto Rockets] Rocket snapshot failed: " + ex);
-        }
-    }
+            if (!TetoRocketsPlugin.GameplayActive)
+                return;
 
-    // Runs immediately AFTER the original Shoot() method.
-    [HarmonyPostfix]
-    private static void Postfix(HashSet<int> __state)
-    {
-        if (!TetoRocketsPlugin.GameplayActive)
-            return;
-
-        try
-        {
-            Grenade[] current =
-                UnityEngine.Object.FindObjectsOfType<Grenade>();
-
-            int detected = 0;
-
-            foreach (Grenade grenade in current)
+            try
             {
-                if (grenade == null || !grenade.rocket)
-                    continue;
+                Grenade[] current =
+                    UnityEngine.Object.FindObjectsOfType<Grenade>();
 
-                int instanceId = grenade.GetInstanceID();
+                int detected = 0;
 
-                // It existed before firing, so it isn't our new projectile.
-                if (__state != null && __state.Contains(instanceId))
-                    continue;
+                foreach (Grenade grenade in current)
+                {
+                    if (grenade == null || !grenade.rocket)
+                        continue;
 
-                // New rocket: replace it immediately.
-                TetoRocketReplacer.ProcessRocket(grenade);
-                detected++;
+                    int id = grenade.GetInstanceID();
+
+                    if (__state != null && __state.Contains(id))
+                        continue;
+
+                    TetoRocketReplacer.ProcessRocket(grenade);
+                    detected++;
+                }
+
+                if (detected > 0)
+                {
+                    TetoRocketsPlugin.PluginLog.LogInfo(
+                        "[Firing Detection] Detected " +
+                        detected + " new rocket(s) immediately after Shoot()."
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                TetoRocketsPlugin.PluginLog.LogError(
+                    "[Firing Detection] Failed: " + ex
+                );
             }
 
-            if (detected > 0)
-            {
-                Debug.Log(
-                    "[ULTRADROID Teto Rockets] Firing hook detected "
-                    + detected + " new rocket(s).");
-            }
+            TetoRocketsPlugin.PlayTetoSound();
         }
-        catch (Exception ex)
-        {
-            Debug.LogError(
-                "[ULTRADROID Teto Rockets] Firing detection failed: " + ex);
-        }
-
-        // Keep the existing Teto firing sound.
-        TetoRocketsPlugin.PlayTetoSound();
     }
 }
