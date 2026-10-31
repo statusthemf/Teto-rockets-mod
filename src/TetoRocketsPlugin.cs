@@ -12,6 +12,7 @@ using ULTRADROID.Models;
 using ULTRADROID.Sound;
 
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace ULTRADROID.TetoRockets
 {
@@ -33,6 +34,9 @@ namespace ULTRADROID.TetoRockets
         internal static bool GameplayActive;
         internal static bool SoundInitialized;
         internal static bool TetoSoundReady;
+
+        private static bool detectorTypeRegistered;
+        private static bool runtimeCreated;
 
         public override void Load()
         {
@@ -65,11 +69,13 @@ namespace ULTRADROID.TetoRockets
             }
 
             PluginLog.LogInfo(
-                "Teto.glb size: " + new FileInfo(ModelPath).Length + " bytes"
+                "Teto.glb size: " +
+                new FileInfo(ModelPath).Length + " bytes"
             );
 
             PluginLog.LogInfo(
-                "Teto.wav size: " + new FileInfo(SoundPath).Length + " bytes"
+                "Teto.wav size: " +
+                new FileInfo(SoundPath).Length + " bytes"
             );
 
             ModelOwner = ModelAPI.CreateOwner(
@@ -77,17 +83,76 @@ namespace ULTRADROID.TetoRockets
             );
 
             ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
+            detectorTypeRegistered = true;
 
-            GameObject runtime = new GameObject(
-                "ULTRADROID_Teto_Rockets_Runtime"
-            );
-
-            UnityEngine.Object.DontDestroyOnLoad(runtime);
-            runtime.AddComponent<RocketDetector>();
+            // Wait for Unity to finish loading a scene before
+            // creating our persistent runtime object.
+            SceneManager.sceneLoaded += OnSceneLoaded;
 
             PluginLog.LogInfo(
-                "Runtime created. Waiting for gameplay before initializing systems."
+                "Initialization complete. Waiting for the first scene to load."
             );
+        }
+
+        private static void OnSceneLoaded(
+            Scene scene,
+            LoadSceneMode mode
+        )
+        {
+            PluginLog.LogInfo(
+                "[Runtime] Scene loaded: " + scene.name +
+                " | Mode: " + mode
+            );
+
+            if (runtimeCreated)
+                return;
+
+            CreateRuntime();
+        }
+
+        private static void CreateRuntime()
+        {
+            if (runtimeCreated || !detectorTypeRegistered)
+                return;
+
+            try
+            {
+                GameObject runtime = new GameObject(
+                    "ULTRADROID_Teto_Rockets_Runtime"
+                );
+
+                UnityEngine.Object.DontDestroyOnLoad(runtime);
+
+                RocketDetector detector =
+                    runtime.AddComponent<RocketDetector>();
+
+                if (detector == null)
+                {
+                    PluginLog.LogError(
+                        "[Runtime] Failed to add RocketDetector."
+                    );
+
+                    UnityEngine.Object.Destroy(runtime);
+                    return;
+                }
+
+                runtimeCreated = true;
+
+                PluginLog.LogInfo(
+                    "[Runtime] Persistent runtime created successfully."
+                );
+
+                PluginLog.LogInfo(
+                    "[Runtime] Runtime scene: " +
+                    runtime.scene.name
+                );
+            }
+            catch (Exception ex)
+            {
+                PluginLog.LogError(
+                    "[Runtime] Creation failed: " + ex
+                );
+            }
         }
 
         internal static void OnGameplayStarted()
@@ -112,7 +177,7 @@ namespace ULTRADROID.TetoRockets
             GameplayActive = false;
 
             PluginLog.LogInfo(
-                "[Gameplay] Gameplay ended. Stopping rocket detection and cleaning up."
+                "[Gameplay] Gameplay ended. Cleaning up."
             );
 
             TetoRocketReplacer.CleanupAll();
@@ -135,8 +200,12 @@ namespace ULTRADROID.TetoRockets
             try
             {
                 SoundAPI.SetLogger(
-                    message => PluginLog.LogInfo("[Sound API] " + message),
-                    message => PluginLog.LogError("[Sound API] " + message)
+                    message => PluginLog.LogInfo(
+                        "[Sound API] " + message
+                    ),
+                    message => PluginLog.LogError(
+                        "[Sound API] " + message
+                    )
                 );
 
                 if (!SoundAPI.IsRuntimeAvailable)
@@ -156,7 +225,8 @@ namespace ULTRADROID.TetoRockets
                             TetoSoundReady = false;
 
                             PluginLog.LogError(
-                                "[Sound] Failed to load Teto.wav: " + error
+                                "[Sound] Failed to load Teto.wav: " +
+                                error
                             );
 
                             return;
