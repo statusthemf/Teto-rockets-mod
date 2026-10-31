@@ -31,6 +31,10 @@
       <Private>false</Private>
     </Reference>
 
+    <Reference Include="0Harmony">
+        <HintPath>lib/0Harmony.dll</HintPath>
+    </Reference>
+
     <Reference Include="BepInEx.Unity.IL2CPP">
       <HintPath>lib/BepInEx.Unity.IL2CPP.dll</HintPath>
       <Private>false</Private>
