@@ -1,215 +1,159 @@
 using System;
-using System.IO;
-
-using BepInEx;
-using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
-
-using Il2CppInterop.Runtime.Injection;
-
-using ULTRADROID.Models;
-using ULTRADROID.Sound;
-
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace ULTRADROID.TetoRockets
 {
-    [BepInPlugin(
-        "somerandommaid.ultradroid.tetorockets",
-        "ULTRADROID Teto Rockets",
-        "0.5.0"
-    )]
-    [BepInDependency("somerandommaid.ultradroid.models")]
-    public class TetoRocketsPlugin : BasePlugin
+    public sealed class RocketDetector : MonoBehaviour
     {
-        internal static ManualLogSource PluginLog;
+        public RocketDetector(IntPtr ptr) : base(ptr) { }
 
-        internal static ModelOwner ModelOwner;
+        private float readinessTimer;
+        private float rocketScanTimer;
+        private float diagnosticsTimer;
 
-        internal static string ModelPath;
-        internal static string SoundPath;
+        private bool gameplayActive;
 
-        internal static bool GameplayActive;
-        internal static bool SoundInitialized;
-        internal static bool TetoSoundReady;
+        private const float ReadinessInterval = 0.5f;
+        private const float RocketScanInterval = 0.25f;
+        private const float DiagnosticsInterval = 5f;
 
-        public override void Load()
+        private void Update()
         {
-            PluginLog = Log;
-
-            PluginLog.LogInfo("Initializing Teto Rockets 0.5.0...");
-
-            string pluginDirectory = Path.GetDirectoryName(
-                typeof(TetoRocketsPlugin).Assembly.Location
-            );
-
-            string assetDirectory = Path.Combine(
-                pluginDirectory,
-                "assets"
-            );
-
-            ModelPath = Path.Combine(assetDirectory, "Teto.glb");
-            SoundPath = Path.Combine(assetDirectory, "Teto.wav");
-
-            if (!File.Exists(ModelPath))
+            // Heartbeat: approximately every 300 frames.
+            if (Time.frameCount % 300 == 0)
             {
-                PluginLog.LogError("Teto.glb not found: " + ModelPath);
-                return;
+                Debug.Log(
+                    "[ULTRADROID Teto Rockets] Detector heartbeat. " +
+                    "Frame: " + Time.frameCount
+                );
             }
 
-            if (!File.Exists(SoundPath))
+            readinessTimer -= Time.unscaledDeltaTime;
+            rocketScanTimer -= Time.unscaledDeltaTime;
+            diagnosticsTimer -= Time.unscaledDeltaTime;
+
+            if (readinessTimer <= 0f)
             {
-                PluginLog.LogError("Teto.wav not found: " + SoundPath);
-                return;
+                readinessTimer = ReadinessInterval;
+                CheckGameplayState();
             }
 
-            PluginLog.LogInfo(
-                "Teto.glb size: " + new FileInfo(ModelPath).Length + " bytes"
-            );
-
-            PluginLog.LogInfo(
-                "Teto.wav size: " + new FileInfo(SoundPath).Length + " bytes"
-            );
-
-            ModelOwner = ModelAPI.CreateOwner(
-                "somerandommaid.ultradroid.tetorockets"
-            );
-
-            // Register the detector type before adding it to a GameObject.
-            ClassInjector.RegisterTypeInIl2Cpp<RocketDetector>();
-
-            GameObject runtime = new GameObject(
-                "ULTRADROID_Teto_Rockets_Runtime"
-            );
-
-            UnityEngine.Object.DontDestroyOnLoad(runtime);
-            runtime.AddComponent<RocketDetector>();
-
-            PluginLog.LogInfo(
-                "Runtime created. Waiting for gameplay before initializing systems."
-            );
-        }
-
-        internal static void OnGameplayStarted()
-        {
-            if (GameplayActive)
-                return;
-
-            GameplayActive = true;
-
-            PluginLog.LogInfo(
-                "[Gameplay] Gameplay detected. Starting Teto systems."
-            );
-
-            InitializeSound();
-        }
-
-        internal static void OnGameplayStopped()
-        {
-            if (!GameplayActive)
-                return;
-
-            GameplayActive = false;
-
-            PluginLog.LogInfo(
-                "[Gameplay] Gameplay ended. Stopping rocket detection and cleaning up."
-            );
-
-            TetoRocketReplacer.CleanupAll();
-        }
-
-        private static void InitializeSound()
-        {
-            if (SoundInitialized && SoundAPI.IsRuntimeAvailable)
+            if (diagnosticsTimer <= 0f)
             {
-                PluginLog.LogInfo(
-                    "[Sound] Sound API already initialized."
+                diagnosticsTimer = DiagnosticsInterval;
+
+                Debug.Log(
+                    "[ULTRADROID Teto Rockets] Detector alive | " +
+                    "Scene: " + SceneManager.GetActiveScene().name +
+                    " | Gameplay active: " + gameplayActive
+                );
+            }
+
+            if (!gameplayActive || rocketScanTimer > 0f)
+                return;
+
+            rocketScanTimer = RocketScanInterval;
+
+            ScanForRockets();
+        }
+
+        private void CheckGameplayState()
+        {
+            bool ready = IsGameplayReady();
+
+            if (ready == gameplayActive)
+                return;
+
+            gameplayActive = ready;
+
+            if (gameplayActive)
+            {
+                Debug.Log(
+                    "[ULTRADROID Teto Rockets] Gameplay detected."
                 );
 
-                return;
+                TetoRocketsPlugin.OnGameplayStarted();
             }
+            else
+            {
+                Debug.Log(
+                    "[ULTRADROID Teto Rockets] Gameplay stopped."
+                );
 
-            SoundInitialized = true;
-            TetoSoundReady = false;
+                TetoRocketsPlugin.OnGameplayStopped();
+            }
+        }
 
+        private bool IsGameplayReady()
+        {
+            GunControl gunControl =
+                UnityEngine.Object.FindObjectOfType<GunControl>();
+
+            if (gunControl == null)
+                return false;
+
+            if (gunControl.slots == null)
+                return false;
+
+            // No minimum weapon count.
+            return true;
+        }
+
+        private void ScanForRockets()
+        {
             try
             {
-                SoundAPI.SetLogger(
-                    message => PluginLog.LogInfo("[Sound API] " + message),
-                    message => PluginLog.LogError("[Sound API] " + message)
-                );
+                Grenade[] grenades =
+                    UnityEngine.Object.FindObjectsOfType<Grenade>();
 
-                if (!SoundAPI.IsRuntimeAvailable)
-                    SoundAPI.Initialize();
-
-                PluginLog.LogInfo(
-                    "[Sound] Runtime available: " +
-                    SoundAPI.IsRuntimeAvailable
-                );
-
-                SoundAPI.Load(
-                    SoundPath,
-                    (clip, error) =>
-                    {
-                        if (clip == null)
-                        {
-                            TetoSoundReady = false;
-
-                            PluginLog.LogError(
-                                "[Sound] Failed to load Teto.wav: " + error
-                            );
-
-                            return;
-                        }
-
-                        TetoSoundReady = true;
-
-                        PluginLog.LogInfo(
-                            "[Sound] Teto.wav loaded successfully."
-                        );
-                    }
-                );
-            }
-            catch (Exception ex)
-            {
-                PluginLog.LogError(
-                    "[Sound] Initialization exception: " + ex
-                );
-            }
-        }
-
-        internal static void PlayTetoSound()
-        {
-            if (!GameplayActive || !TetoSoundReady)
-                return;
-
-            try
-            {
-                if (!SoundAPI.IsRuntimeAvailable)
+                foreach (Grenade grenade in grenades)
                 {
-                    PluginLog.LogWarning(
-                        "[Sound] Runtime unavailable. Not playing sound."
-                    );
+                    if (grenade == null)
+                        continue;
 
-                    return;
+                    if (!grenade.rocket)
+                        continue;
+
+                    TetoRocketReplacer.ProcessRocket(grenade);
                 }
 
-                SoundAPI.Play(
-                    SoundPath,
-                    new SoundOptions
-                    {
-                        Volume = 1f,
-                        Pitch = 1f,
-                        Loop = false,
-                        PlayOnLoad = true
-                    }
-                );
+                TetoRocketReplacer.CleanupDestroyedRockets();
             }
             catch (Exception ex)
             {
-                PluginLog.LogError(
-                    "[Sound] Playback exception: " + ex
+                Debug.LogError(
+                    "[ULTRADROID Teto Rockets] Rocket scan error: " + ex
                 );
+            }
+        }
+
+        private void OnDisable()
+        {
+            Debug.LogError(
+                "[ULTRADROID Teto Rockets] DETECTOR DISABLED!"
+            );
+        }
+
+        private void OnDestroy()
+        {
+            Debug.LogError(
+                "[ULTRADROID Teto Rockets] DETECTOR DESTROYED!\n" +
+                "GameObject: " +
+                (gameObject != null ? gameObject.name : "NULL") +
+                "\nActive: " +
+                (gameObject != null && gameObject.activeSelf) +
+                "\nScene: " +
+                SceneManager.GetActiveScene().name +
+                "\nStack trace:\n" +
+                Environment.StackTrace
+            );
+
+            if (gameplayActive)
+            {
+                gameplayActive = false;
+                TetoRocketsPlugin.OnGameplayStopped();
             }
         }
     }
