@@ -70,6 +70,9 @@
       <HintPath>lib/UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <Compile Remove="tools/**/*.cs" />
+
   </ItemGroup>
 
 </Project>
