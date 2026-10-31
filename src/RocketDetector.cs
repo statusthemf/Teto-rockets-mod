@@ -78,37 +78,34 @@ namespace ULTRADROID.TetoRockets
                 TetoRocketsPlugin.OnGameplayStopped();
             }
         }
-
+        
         private bool IsGameplayReady()
         {
-            try
+            GunControl gunControl =
+                UnityEngine.Object.FindObjectOfType<GunControl>();
+
+            string scene = UnityEngine.SceneManagement.SceneManager
+                .GetActiveScene().name;
+
+            if (gunControl == null)
             {
-                // GunControl is only used as a readiness signal here.
-                // We do not scan Grenade objects until this succeeds.
-                GunControl gunControl =
-                    UnityEngine.Object.FindObjectOfType<GunControl>();
-
-                if (gunControl == null)
-                    return false;
-
-                if (gunControl.slots == null)
-                    return false;
-
-                if (gunControl.slots.Count < 6)
-                    return false;
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                TetoRocketsPlugin.PluginLog.LogWarning(
-                    "[Gameplay] Readiness check failed: " + ex.Message
-                );
-
+                TetoRocketsPlugin.LogInfo(
+                    $"[Detector] Scene: {scene} | GunControl: NOT FOUND");
                 return false;
             }
-        }
 
+            if (gunControl.slots == null)
+            {
+                TetoRocketsPlugin.LogInfo(
+                    $"[Detector] Scene: {scene} | GunControl found | Slots: NULL");
+                return false;
+            }
+
+            TetoRocketsPlugin.LogInfo(
+                $"[Detector] Scene: {scene} | GunControl found | Slots: {gunControl.slots.Count}");
+
+            return gunControl.slots.Count >= 6;
+        }
         private void ScanForRockets()
         {
             try
