@@ -1,114 +1,87 @@
+using System;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 
-if (args.Length < 1)
+if (args.Length < 2)
 {
-Console.Error.WriteLine("Usage: Il2CppDelegateInspector <path-to-Il2CppInterop.Runtime.dll>");
-return 2;
+    Console.WriteLine("Usage: Inspector <Il2CppInterop.Runtime.dll> <UnityEngine.CoreModule.dll>");
+    return 1;
 }
 
-var targetPath = Path.GetFullPath(args[0]);
-var targetDirectory = Path.GetDirectoryName(targetPath)!;
+var directory = Path.GetDirectoryName(Path.GetFullPath(args[0]))!;
 
 AssemblyLoadContext.Default.Resolving += (_, name) =>
 {
-var candidate = Path.Combine(targetDirectory, name.Name + ".dll");
-return File.Exists(candidate)
-? AssemblyLoadContext.Default.LoadFromAssemblyPath(candidate)
-: null;
+    var path = Path.Combine(directory, name.Name + ".dll");
+    return File.Exists(path)
+        ? AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
+        : null;
 };
 
 try
 {
-var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(targetPath);
+    var interop = AssemblyLoadContext.Default.LoadFromAssemblyPath(
+        Path.GetFullPath(args[0]));
 
-Console.WriteLine($"Assembly: {assembly.FullName}");
+    var core = AssemblyLoadContext.Default.LoadFromAssemblyPath(
+        Path.GetFullPath(args[1]));
 
-var type = assembly.GetType(
-    "Il2CppInterop.Runtime.DelegateSupport",
-    throwOnError: true)!;
+    Console.WriteLine("=== DelegateSupport ===");
 
-Console.WriteLine($"TYPE: {type.FullName}");
-Console.WriteLine();
+    var support = interop.GetType(
+        "Il2CppInterop.Runtime.DelegateSupport", true)!;
 
-const BindingFlags flags =
-    BindingFlags.Public |
-    BindingFlags.NonPublic |
-    BindingFlags.Static |
-    BindingFlags.Instance |
-    BindingFlags.DeclaredOnly;
-
-foreach (var method in type.GetMethods(flags).OrderBy(m => m.MetadataToken))
-{
-    try
+    foreach (var method in support.GetMethods(
+        BindingFlags.Public | BindingFlags.Static |
+        BindingFlags.DeclaredOnly))
     {
-        var generic = method.IsGenericMethodDefinition
-            ? "<" + string.Join(", ", method.GetGenericArguments().Select(a => a.Name)) + ">"
-            : "";
-
-        var parameters = string.Join(
-            ", ",
-            method.GetParameters().Select(FormatParameter));
-
-        Console.WriteLine(
-            $"{Visibility(method)} {(method.IsStatic ? "static " : "")}{FormatType(method.ReturnType)} {method.Name}{generic}({parameters})");
+        Console.WriteLine(method);
     }
-    catch (Exception ex)
+
+    Console.WriteLine();
+    Console.WriteLine("=== SceneManager.sceneLoaded ===");
+
+    var sceneManager = core.GetType(
+        "UnityEngine.SceneManagement.SceneManager", true)!;
+
+    var eventInfo = sceneManager.GetEvent(
+        "sceneLoaded",
+        BindingFlags.Public | BindingFlags.Static);
+
+    if (eventInfo == null)
     {
-        Console.WriteLine($"[Formatting error: {ex.Message}]");
+        Console.WriteLine("sceneLoaded event not found.");
+        return 2;
     }
-}
 
-Console.WriteLine();
-Console.WriteLine("Related delegate types:");
+    Console.WriteLine("Event: " + eventInfo);
+    Console.WriteLine("Handler type: " + eventInfo.EventHandlerType);
 
-foreach (var related in assembly.GetTypes()
-    .Where(t => t.FullName != null &&
-                t.FullName.Contains("Delegate", StringComparison.OrdinalIgnoreCase))
-    .OrderBy(t => t.FullName))
-{
-    Console.WriteLine($"- {related.FullName}");
-}
+    var invoke = eventInfo.EventHandlerType?.GetMethod("Invoke");
 
-return 0;
+    Console.WriteLine("Delegate Invoke: " + invoke);
 
+    if (invoke != null)
+    {
+        foreach (var parameter in invoke.GetParameters())
+            Console.WriteLine($"Parameter: {parameter.ParameterType} {parameter.Name}");
+    }
+
+    var addMethod = eventInfo.GetAddMethod(true);
+    Console.WriteLine("Add method: " + addMethod);
+
+    if (addMethod != null)
+    {
+        foreach (var parameter in addMethod.GetParameters())
+            Console.WriteLine($"Add parameter: {parameter.ParameterType}");
+    }
+
+    return 0;
 }
 catch (Exception ex)
 {
-Console.Error.WriteLine(ex);
-return 1;
+    Console.WriteLine(ex);
+    return 1;
 }
-
-static string FormatParameter(ParameterInfo p) =>
-$"{(p.IsOut ? "out " : p.ParameterType.IsByRef ? "ref " : "")}{FormatType(p.ParameterType)} {p.Name}";
-
-static string FormatType(Type t)
-{
-if (t.IsByRef)
-return FormatType(t.GetElementType()!) + "&";
-
-if (t.IsArray)
-    return FormatType(t.GetElementType()!) + "[]";
-
-if (t.IsGenericParameter)
-    return t.Name;
-
-if (!t.IsGenericType)
-    return t.FullName ?? t.Name;
-
-var name = t.GetGenericTypeDefinition().FullName ?? t.Name;
-var tick = name.IndexOf("`", StringComparison.Ordinal);
-
-if (tick >= 0)
-    name = name[..tick];
-
-return name + "<" +
-    string.Join(", ", t.GetGenericArguments().Select(FormatType)) + ">";
-
-}
-
-static string Visibility(MethodBase m) =>
-m.IsPublic ? "public" :
-m.IsFamily ? "protected" :
-m.IsAssembly ? "internal" :
-m.IsPrivate ? "private" : "nonpublic";
