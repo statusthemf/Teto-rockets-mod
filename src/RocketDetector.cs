@@ -17,7 +17,7 @@ namespace ULTRADROID.TetoRockets
         private bool gameplayActive;
 
         private const float ReadinessInterval = 0.5f;
-        private const float RocketScanInterval = 0.25f;
+        private const float RocketScanInterval = 0.05f;
         private const float DiagnosticsInterval = 5f;
 
         private void Update()
