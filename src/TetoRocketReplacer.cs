@@ -28,7 +28,9 @@ namespace ULTRADROID.TetoRockets
         {
             if (!TetoRocketsPlugin.GameplayActive || grenade == null)
                 return;
-
+            
+            TetoRocketsPlugin.PlayTetoSound();
+            
             try
             {
                 int id = grenade.gameObject.GetInstanceID();
@@ -320,7 +322,6 @@ namespace ULTRADROID.TetoRockets
                     id
                 );
 
-                TetoRocketsPlugin.PlayTetoSound();
             }
             catch (Exception ex)
             {
