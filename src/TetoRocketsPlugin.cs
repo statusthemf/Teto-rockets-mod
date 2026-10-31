@@ -298,7 +298,7 @@ namespace ULTRADROID.TetoRockets
                     return;
                 }
 
-                SoundAPI.Play(
+                SoundHandle handle = SoundAPI.Play(
                     SoundPath,
                     new SoundOptions
                     {
@@ -308,6 +308,20 @@ namespace ULTRADROID.TetoRockets
                         PlayOnLoad = true
                     }
                 );
+                
+                if (handle == null)
+                {
+                    PluginLog.LogError(
+                        "[Sound] SoundAPI.Play returned NULL!"
+                    );
+                }
+                else
+                {
+                    PluginLog.LogInfo(
+                        "[Sound] Playback handle created. IsPlaying: " +
+                        handle.IsPlaying
+                    );
+                }
             }
             catch (Exception ex)
             {
