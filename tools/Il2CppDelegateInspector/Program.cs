@@ -22,60 +22,62 @@ AssemblyLoadContext.Default.Resolving += (_, name) =>
 
 try
 {
-    var interop = AssemblyLoadContext.Default.LoadFromAssemblyPath(
-        Path.GetFullPath(args[0]));
-
     var core = AssemblyLoadContext.Default.LoadFromAssemblyPath(
         Path.GetFullPath(args[1]));
 
-    Console.WriteLine("=== DelegateSupport ===");
+    Console.WriteLine("=== SceneManager types ===");
 
-    var support = interop.GetType(
-        "Il2CppInterop.Runtime.DelegateSupport", true)!;
+    var matches = core.GetTypes()
+        .Where(t => t.FullName != null &&
+            t.FullName.Contains("SceneManager", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
 
-    foreach (var method in support.GetMethods(
-        BindingFlags.Public | BindingFlags.Static |
-        BindingFlags.DeclaredOnly))
+    foreach (var type in matches)
     {
-        Console.WriteLine(method);
+        Console.WriteLine();
+        Console.WriteLine("TYPE: " + type.FullName);
+
+        Console.WriteLine("-- Events --");
+        foreach (var e in type.GetEvents(
+            BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Static | BindingFlags.Instance |
+            BindingFlags.DeclaredOnly))
+        {
+            Console.WriteLine(e);
+            Console.WriteLine("  Handler: " + e.EventHandlerType);
+            Console.WriteLine("  Add: " + e.GetAddMethod(true));
+        }
+
+        Console.WriteLine("-- Relevant methods --");
+        foreach (var method in type.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Static | BindingFlags.Instance |
+            BindingFlags.DeclaredOnly)
+            .Where(m => m.Name.Contains("sceneLoaded",
+                StringComparison.OrdinalIgnoreCase) ||
+                m.Name.Contains("SceneLoaded",
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.WriteLine(method);
+        }
     }
 
     Console.WriteLine();
-    Console.WriteLine("=== SceneManager.sceneLoaded ===");
+    Console.WriteLine("=== Types containing SceneLoaded in their members ===");
 
-    var sceneManager = core.GetType(
-        "UnityEngine.SceneManagement.SceneManager", true)!;
-
-    var eventInfo = sceneManager.GetEvent(
-        "sceneLoaded",
-        BindingFlags.Public | BindingFlags.Static);
-
-    if (eventInfo == null)
+    foreach (var type in core.GetTypes())
     {
-        Console.WriteLine("sceneLoaded event not found.");
-        return 2;
-    }
+        var members = type.GetMembers(
+            BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Static | BindingFlags.Instance |
+            BindingFlags.DeclaredOnly);
 
-    Console.WriteLine("Event: " + eventInfo);
-    Console.WriteLine("Handler type: " + eventInfo.EventHandlerType);
-
-    var invoke = eventInfo.EventHandlerType?.GetMethod("Invoke");
-
-    Console.WriteLine("Delegate Invoke: " + invoke);
-
-    if (invoke != null)
-    {
-        foreach (var parameter in invoke.GetParameters())
-            Console.WriteLine($"Parameter: {parameter.ParameterType} {parameter.Name}");
-    }
-
-    var addMethod = eventInfo.GetAddMethod(true);
-    Console.WriteLine("Add method: " + addMethod);
-
-    if (addMethod != null)
-    {
-        foreach (var parameter in addMethod.GetParameters())
-            Console.WriteLine($"Add parameter: {parameter.ParameterType}");
+        foreach (var member in members.Where(m =>
+            m.Name.Contains("sceneLoaded",
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.WriteLine(type.FullName + " :: " + member);
+        }
     }
 
     return 0;
