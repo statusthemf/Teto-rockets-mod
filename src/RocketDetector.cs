@@ -89,19 +89,19 @@ namespace ULTRADROID.TetoRockets
 
             if (gunControl == null)
             {
-                TetoRocketsPlugin.LogInfo(
+                TetoRocketsPlugin.PluginLog.LogInfo(
                     $"[Detector] Scene: {scene} | GunControl: NOT FOUND");
                 return false;
             }
 
             if (gunControl.slots == null)
             {
-                TetoRocketsPlugin.LogInfo(
+                TetoRocketsPlugin.PluginLog.LogInfo(
                     $"[Detector] Scene: {scene} | GunControl found | Slots: NULL");
                 return false;
             }
 
-            TetoRocketsPlugin.LogInfo(
+            TetoRocketsPlugin.PluginLog.LogInfo(
                 $"[Detector] Scene: {scene} | GunControl found | Slots: {gunControl.slots.Count}");
 
             return gunControl.slots.Count >= 6;
