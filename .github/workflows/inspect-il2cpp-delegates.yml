@@ -1,0 +1,42 @@
+name: Inspect Il2CppInterop Delegates
+
+on:
+workflow_dispatch:
+
+permissions:
+contents: read
+
+jobs:
+inspect:
+runs-on: ubuntu-latest
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v5
+
+  - name: Set up .NET 10
+    uses: actions/setup-dotnet@v5
+    with:
+      dotnet-version: 10.0.x
+
+  - name: Verify runtime DLL
+    run: |
+      test -f lib/Il2CppInterop.Runtime.dll
+      ls -lh lib/Il2CppInterop.Runtime.dll
+
+  - name: Run delegate inspector
+    run: |
+      mkdir -p inspection-output
+      dotnet run \
+        --project tools/Il2CppDelegateInspector/Il2CppDelegateInspector.csproj \
+        --configuration Release \
+        -- lib/Il2CppInterop.Runtime.dll \
+        2>&1 | tee inspection-output/delegate-support.txt
+
+  - name: Upload inspection report
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: il2cpp-delegate-inspection
+      path: inspection-output/
+      if-no-files-found: warn
