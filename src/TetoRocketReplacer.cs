@@ -278,8 +278,7 @@ namespace ULTRADROID.TetoRockets
                 Renderer[] renderers =
                     instance.Root.GetComponentsInChildren<Renderer>(true);
 
-                int meshRendererCount = 0;
-                int skinnedRendererCount = 0;
+                int rendererCount = 0;
 
                 foreach (Renderer renderer in renderers)
                 {
@@ -287,26 +286,18 @@ namespace ULTRADROID.TetoRockets
                         continue;
 
                     renderer.enabled = true;
-
-                    if (renderer is MeshRenderer)
-                        meshRendererCount++;
-
-                    if (renderer is SkinnedMeshRenderer)
-                        skinnedRendererCount++;
+                    rendererCount++;
                 }
 
                 TetoRocketsPlugin.PluginLog.LogInfo(
                     "[Rocket] Teto instance renderer count for rocket " +
-                    id +
-                    " | MeshRenderers: " + meshRendererCount +
-                    " | SkinnedMeshRenderers: " + skinnedRendererCount
+                    id + " | Renderers: " + rendererCount
                 );
 
-                if (meshRendererCount == 0 &&
-                    skinnedRendererCount == 0)
+                if (rendererCount == 0)
                 {
                     TetoRocketsPlugin.PluginLog.LogError(
-                        "[Rocket] Teto instance has no MeshRenderer or SkinnedMeshRenderer."
+                        "[Rocket] Teto instance has no Renderer components."
                     );
 
                     instance.Destroy();
