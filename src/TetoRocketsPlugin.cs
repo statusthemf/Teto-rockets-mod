@@ -12,6 +12,7 @@ using ULTRADROID.Models;
 using ULTRADROID.Sound;
 
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 namespace ULTRADROID.TetoRockets
@@ -87,7 +88,8 @@ namespace ULTRADROID.TetoRockets
 
             // Wait for Unity to finish loading a scene before
             // creating our persistent runtime object.
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneLoaded +=
+            new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded);
 
             PluginLog.LogInfo(
                 "Initialization complete. Waiting for the first scene to load."
