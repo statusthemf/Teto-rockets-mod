@@ -77,16 +77,6 @@ namespace ULTRADROID.TetoRockets
                 return;
             }
 
-            PluginLog.LogInfo(
-                "Teto.glb size: " +
-                new FileInfo(ModelPath).Length + " bytes"
-            );
-
-            PluginLog.LogInfo(
-                "Teto.wav size: " +
-                new FileInfo(SoundPath).Length + " bytes"
-            );
-
             ModelOwner = ModelAPI.CreateOwner(
                 "somerandommaid.ultradroid.tetorockets"
             );
@@ -225,10 +215,6 @@ namespace ULTRADROID.TetoRockets
             {
                 TetoTemplate.Destroy();
                 TetoTemplate = null;
-
-                PluginLog.LogInfo(
-                    "[Model] Preloaded Teto template destroyed."
-                );
             }
         }
 
@@ -239,22 +225,12 @@ namespace ULTRADROID.TetoRockets
 
             if (TetoTemplate != null && TetoTemplate.IsValid)
             {
-                PluginLog.LogInfo(
-                    "[Model] Teto template is already available."
-                );
-
                 TetoRocketReplacer.OnTemplateReady();
                 return;
             }
 
             if (templateLoading)
-            {
-                PluginLog.LogInfo(
-                    "[Model] Teto template is already loading."
-                );
-
                 return;
-            }
 
             if (ModelOwner == null || ModelOwner.IsDisposed)
             {
@@ -268,10 +244,6 @@ namespace ULTRADROID.TetoRockets
             templateLoading = true;
 
             int generation = ++templateLoadGeneration;
-
-            PluginLog.LogInfo(
-                "[Model] Preloading Teto.glb once for this gameplay session..."
-            );
 
             ModelLoadOptions options = new ModelLoadOptions
             {
@@ -299,10 +271,6 @@ namespace ULTRADROID.TetoRockets
                             if (instance != null)
                                 instance.Destroy();
 
-                            PluginLog.LogInfo(
-                                "[Model] Ignored stale template load result."
-                            );
-
                             return;
                         }
 
@@ -322,20 +290,10 @@ namespace ULTRADROID.TetoRockets
 
                         TetoTemplate = instance;
 
-                        // IMPORTANT:
-                        // Preserve the template across scene transitions.
-                        // It is loaded while Main Menu may still be active.
                         UnityEngine.Object.DontDestroyOnLoad(
                             TetoTemplate.Root
                         );
 
-                        PluginLog.LogInfo(
-                            "[Model] Template moved to persistent scene: " +
-                            TetoTemplate.Root.scene.name
-                        );
-
-                        // Hide the source template.
-                        // Independent instances enable their own renderers.
                         Renderer[] renderers =
                             TetoTemplate.Root.GetComponentsInChildren<Renderer>(true);
 
@@ -344,11 +302,6 @@ namespace ULTRADROID.TetoRockets
                             if (renderer != null)
                                 renderer.enabled = false;
                         }
-
-                        PluginLog.LogInfo(
-                            "[Model] Teto template loaded successfully. Renderers hidden: " +
-                            renderers.Length
-                        );
 
                         TetoRocketReplacer.OnTemplateReady();
                     },
