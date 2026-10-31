@@ -60,7 +60,7 @@ namespace ULTRADROID.TetoRockets
             );
 
             ModelPath = Path.Combine(assetDirectory, "Teto.glb");
-            SoundPath = Path.Combine(assetDirectory, "Teto.mp3");
+            SoundPath = Path.Combine(assetDirectory, "Teto.wav");
 
             if (!File.Exists(ModelPath))
             {
