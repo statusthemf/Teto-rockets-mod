@@ -1,7 +1,6 @@
+
 using System;
-using System.Collections;
-using BepInEx.Unity.IL2CPP;
-using Il2CppInterop.Runtime;
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -23,6 +22,15 @@ namespace ULTRADROID.TetoRockets
 
         private void Update()
         {
+            // Heartbeat: approximately every 300 frames.
+            if (Time.frameCount % 300 == 0)
+            {
+                Debug.Log(
+                    "[ULTRADROID Teto Rockets] Detector heartbeat. Frame: " +
+                    Time.frameCount
+                );
+            }
+
             readinessTimer -= Time.unscaledDeltaTime;
             rocketScanTimer -= Time.unscaledDeltaTime;
             diagnosticsTimer -= Time.unscaledDeltaTime;
@@ -38,9 +46,10 @@ namespace ULTRADROID.TetoRockets
                 diagnosticsTimer = DiagnosticsInterval;
 
                 Debug.Log(
-                    $"[ULTRADROID Teto Rockets] Detector alive | " +
-                    $"Scene: {SceneManager.GetActiveScene().name} | " +
-                    $"Gameplay active: {gameplayActive}");
+                    "[ULTRADROID Teto Rockets] Detector alive | " +
+                    "Scene: " + SceneManager.GetActiveScene().name +
+                    " | Gameplay active: " + gameplayActive
+                );
             }
 
             if (!gameplayActive || rocketScanTimer > 0f)
@@ -63,15 +72,16 @@ namespace ULTRADROID.TetoRockets
             if (gameplayActive)
             {
                 Debug.Log(
-                    "[ULTRADROID Teto Rockets] Gameplay detected. " +
-                    "Initializing gameplay systems.");
+                    "[ULTRADROID Teto Rockets] Gameplay detected."
+                );
 
                 TetoRocketsPlugin.OnGameplayStarted();
             }
             else
             {
                 Debug.Log(
-                    "[ULTRADROID Teto Rockets] Gameplay stopped.");
+                    "[ULTRADROID Teto Rockets] Gameplay stopped."
+                );
 
                 TetoRocketsPlugin.OnGameplayStopped();
             }
@@ -88,6 +98,7 @@ namespace ULTRADROID.TetoRockets
             if (gunControl.slots == null)
                 return false;
 
+            // No minimum weapon count.
             return true;
         }
 
@@ -114,20 +125,37 @@ namespace ULTRADROID.TetoRockets
             catch (Exception ex)
             {
                 Debug.LogError(
-                    "[ULTRADROID Teto Rockets] Rocket scan error: " + ex);
+                    "[ULTRADROID Teto Rockets] Rocket scan error: " + ex
+                );
             }
+        }
+
+        private void OnDisable()
+        {
+            Debug.LogError(
+                "[ULTRADROID Teto Rockets] DETECTOR DISABLED!"
+            );
         }
 
         private void OnDestroy()
         {
+            Debug.LogError(
+                "[ULTRADROID Teto Rockets] DETECTOR DESTROYED!\n" +
+                "GameObject: " +
+                (gameObject != null ? gameObject.name : "NULL") +
+                "\nActive: " +
+                (gameObject != null && gameObject.activeSelf) +
+                "\nScene: " +
+                SceneManager.GetActiveScene().name +
+                "\nStack trace:\n" +
+                Environment.StackTrace
+            );
+
             if (gameplayActive)
             {
                 gameplayActive = false;
                 TetoRocketsPlugin.OnGameplayStopped();
             }
-
-            Debug.Log(
-                "[ULTRADROID Teto Rockets] Rocket detector destroyed.");
         }
     }
 }
