@@ -89,7 +89,7 @@ namespace ULTRADROID.TetoRockets
                     Scale = Vector3.one,
                     LoadTextures = true,
                     CreateColliders = false,
-                    FlipUvV = false
+                    FlipUvV = true
                 };
 
                 ModelAPI.LoadGLBAsync(
